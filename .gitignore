@@ -1,1 +1,4 @@
 venv/
+.ssh/
+good_but_not_used/ssh_keys
+good_but_not_used/ssh_keys.pub

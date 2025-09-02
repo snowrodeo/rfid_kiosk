@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from datetime import datetime
 import requests
 import argparse
 import subprocess
@@ -49,13 +50,27 @@ def ensure_race_in_db(race_id, name, race_date):
             cursor.close()
             conn.close()
 
+
+# Days of week to run (Mon=0 .. Sun=6)
+ALLOWED_DAYS = { 6}  # Saturday=5, Sunday=6
+
 def main():
     parser = argparse.ArgumentParser(description="Fetch race IDs for a specific date and call getRegistrationDataByRaceID.py")
     parser.add_argument("-d", "--date", type=str, help="Target date in MM/DD/YY format (default today)")
     parser.add_argument("-p", "--parallel", action="store_true", help="Run fetches in parallel")
     args = parser.parse_args()
 
-    target_date = datetime.strptime(args.date, "%m/%d/%y").date() if args.date else datetime.today().date()
+    if args.date:
+        # If date explicitly provided, always run
+        target_date = datetime.strptime(args.date, "%m/%d/%y").date()
+    else:
+        # Default = today, but only run on allowed days
+        today = datetime.today()
+        if today.weekday() not in ALLOWED_DAYS:
+            print(f"Today ({today.strftime('%A')}) is not in allowed days, exiting.")
+            return
+        target_date = today.date()
+
     print(f"Fetching races for {target_date}")
     race_entries = get_race_ids_for_date(target_date)
     print(f"Found {len(race_entries)} races: {[r[0] for r in race_entries]}")

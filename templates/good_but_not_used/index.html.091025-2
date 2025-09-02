@@ -10,15 +10,19 @@
             margin: 0;
             padding: 0;
             background: #111;
-            color: #0f0; /* default green */
+            color: #0f0; /* green for valid racer */
         }
 
         /* Racer display lines */
-        .line1, .line2, .line3, .line4, .line5 {
-            font-weight: bold;
-            margin-top: 2vh;
-            white-space: nowrap;
+        .line1, .line2, .line3, .line4, .line5,
+        .problem-title, .problem-line, .idle {
+            white-space: nowrap;   /* keep everything on one line */
+            overflow: hidden;      /* hide overflow just in case */
+            text-overflow: ellipsis;
         }
+
+        .line1 { font-size: 10vw; font-weight: bold; margin-top: 5vh; }
+        .line2, .line3, .line4, .line5 { font-size: 8.5vw; margin-top: 2vh; }
 
         /* Idle screen */
         .idle {
@@ -44,17 +48,6 @@
         @keyframes flash {
             0%,50% { opacity: 1; }
             25%,75% { opacity: 0; }
-        }
-
-        /* Color styling */
-        .label { color: #0f0; }   /* green */
-        .data  { color: #ff0; }   /* yellow */
-
-        /* Autofit text */
-        .autofit {
-            display: inline-block;
-            width: 90%;
-            font-size: 8vw;
         }
     </style>
 
@@ -141,28 +134,19 @@
 
         function renderRacer(r) {
             document.getElementById("display").innerHTML = `
-                <div class="line1 autofit">
-                    <span class="data">${r.FirstName || "unknown"} ${r.LastName || ""}</span>
-                </div>
-                <div class="line2 autofit">
-                    ChipID: <span class="data">${r.ChipId || "unknown"}</span>
-                </div>
-                <div class="line3 autofit">
-                    Bib: <span class="data">${r.Bib || "unknown"}</span>
-                </div>
-                <div class="line4 autofit">
-                    Category: <span class="data">${r.Category || "unknown"}</span>
-                </div>
-                <div class="line5 autofit">
-                    Date: <span class="data">${r.RaceDate || "unknown"}</span>
-                </div>
+                <div class="line1 autofit">${r.FirstName || "unknown"} ${r.LastName || ""}</div>
+                <div class="line2 autofit">ChipID: ${r.ChipId || "unknown"}</div>
+                <div class="line3 autofit">Bib: ${r.Bib || "unknown"}</div>
+                <div class="line4 autofit">Category: ${r.Category || "unknown"}</div>
+                <div class="line5 autofit">Date: ${r.RaceDate || "unknown"}</div>
             `;
             autoFitAll();
         }
 
         function showIdle() {
             document.getElementById("display").innerHTML =
-                `<div class="idle">Pass under arch<br/>Confirm reg data</div>`;
+                `<div class="idle autofit">Pass under arch<br/>Confirm reg data</div>`;
+            autoFitAll();
         }
 
         function showProblem(r) {
@@ -183,6 +167,24 @@
             autoFitAll();
         }
 
+        // Utility: shrink font size until text fits in one line
+        function fitText(el, maxFontSize) {
+            if (!el) return;
+            el.style.fontSize = maxFontSize;
+            while (el.scrollWidth > el.parentElement.clientWidth && parseFloat(el.style.fontSize) > 1) {
+                el.style.fontSize = (parseFloat(el.style.fontSize) - 1) + "px";
+            }
+        }
+
+        // Apply auto-fitting to all elements with class 'autofit'
+        function autoFitAll() {
+            const els = document.querySelectorAll(".autofit");
+            els.forEach(el => {
+                const initial = window.getComputedStyle(el).fontSize;
+                fitText(el, initial);
+            });
+        }
+
         function clearError() {
             if (errorTimeout) {
                 clearTimeout(errorTimeout);
@@ -193,23 +195,7 @@
                 raceInterval = null;
             }
         }
-
-        // Auto-fit function to shrink font size if content wraps
-        function autoFit(el) {
-            let size = parseInt(window.getComputedStyle(el).fontSize);
-            while (el.scrollWidth > el.clientWidth && size > 10) {
-                size--;
-                el.style.fontSize = size + "px";
-            }
-        }
-
-        function autoFitAll() {
-            document.querySelectorAll(".autofit").forEach(el => autoFit(el));
-        }
-
-        window.addEventListener("resize", autoFitAll);
     </script>
 </body>
 </html>
-
 

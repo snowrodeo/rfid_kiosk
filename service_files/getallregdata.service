@@ -1,0 +1,13 @@
+[Unit]
+Description=Update registration data from Webscorer
+After=network.target
+Wants=network.target
+
+[Service]
+Type=oneshot
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/rfid_kiosk
+ExecStart=/var/www/rfid_kiosk/venv/bin/python3 /var/www/rfid_kiosk/getAllRegistrationData.py
+StandardOutput=append:/var/log/getallregdata.log
+StandardError=append:/var/log/getallregdata.log

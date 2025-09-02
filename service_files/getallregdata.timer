@@ -1,0 +1,11 @@
+[Unit]
+Description=Run getAllRegistrationData every minute
+
+[Timer]
+OnCalendar=*-*-* *:*:00
+Unit=getallregdata.service
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>RFID Reader Control</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 16px; }
+  .row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .card { border: 1px solid #ddd; border-radius: 8px; padding: 12px 16px; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+  .muted { color: #666; }
+  .power { font-weight: 600; }
+  input[type="range"] { width: 260px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+  th, td { padding: 6px 8px; border-bottom: 1px solid #eee; text-align: left; }
+  th { background: #fafafa; position: sticky; top: 0; z-index: 1; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #f1f5f9; }
+  .ok { color: #155724; background: #d4edda; }
+  .bad { color: #721c24; background: #f8d7da; }
+</style>
+</head>
+<body>
+  <h2>RFID Reader Control</h2>
+
+  <div class="card row">
+    <div>
+      <div class="muted">Current Antenna Power</div>
+      <div class="power"><span id="powerValue">—</span> <span class="muted">dBm (0 = max)</span></div>
+    </div>
+    <div>
+      <input id="powerSlider" type="range" min="0" max="30" value="30" />
+    </div>
+    <div>
+      <span id="wsStatus" class="pill bad">WebSocket: Disconnected</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="muted">Live Tags (auto-clears after 30s unseen)</div>
+    <table>
+      <thead>
+        <tr>
+          <th>chipid</th>
+          <th>EPC-96</th>
+          <th>Antenna</th>
+          <th>PeakRSSI</th>
+          <th>FirstSeen</th>
+          <th>LastSeen</th>
+          <th>SeenCount</th>
+        </tr>
+      </thead>
+      <tbody id="tagBody"></tbody>
+    </table>
+  </div>
+
+<script>
+  let ws;
+  const tagBody = document.getElementById('tagBody');
+  const powerValue = document.getElementById('powerValue');
+  const powerSlider = document.getElementById('powerSlider');
+  const wsStatus = document.getElementById('wsStatus');
+
+  function setWsStatus(connected) {
+    wsStatus.textContent = connected ? 'WebSocket: Connected' : 'WebSocket: Disconnected';
+    wsStatus.className = 'pill ' + (connected ? 'ok' : 'bad');
+  }
+
+  function connect() {
+    ws = new WebSocket(`ws://${location.hostname}:${location.port}/ws`);
+    ws.onopen = () => { setWsStatus(true); };
+    ws.onclose = () => { setWsStatus(false); setTimeout(connect, 1200); };
+    ws.onerror = () => { setWsStatus(false); };
+    ws.onmessage = (evt) => {
+      try {
+        const data = JSON.parse(evt.data);
+        if (typeof data.antenna_power !== 'undefined') {
+          powerValue.textContent = String(data.antenna_power);
+          powerSlider.value = String(data.antenna_power);
+        }
+        if (Array.isArray(data.tags)) {
+          renderTags(data.tags);
+        }
+      } catch (e) {
+        console.error('WS parse error:', e);
+      }
+    };
+  }
+
+  function td(val, cls='') {
+    const d = document.createElement('td');
+    if (cls) d.className = cls;
+    d.textContent = val == null ? '' : val;
+    return d;
+  }
+
+  function renderTags(tags) {
+    tagBody.innerHTML = '';
+    // Sort newest last seen on top
+    tags.sort((a,b) => (b.LastSeenTimestamp||0) - (a.LastSeenTimestamp||0));
+    for (const t of tags) {
+      const tr = document.createElement('tr');
+      tr.appendChild(td(t.chipid, 'mono'));
+      tr.appendChild(td(t['EPC-96'], 'mono'));
+      tr.appendChild(td(t.AntennaID));
+      tr.appendChild(td(t.PeakRSSI));
+      tr.appendChild(td(tsFormat(t.FirstSeenTimestamp)));
+      tr.appendChild(td(tsFormat(t.LastSeenTimestamp)));
+      tr.appendChild(td(t.TagSeenCount));
+      tagBody.appendChild(tr);
+    }
+  }
+
+  function tsFormat(v) {
+    if (!v) return '';
+    const ms = (v > 1e12) ? Math.floor(v / 1000) : v;
+    try { return new Date(ms).toLocaleString(); } catch { return String(v); }
+  }
+
+  // Debounce slider sends
+  let sendTimer = null;
+  powerSlider.addEventListener('input', () => {
+    const val = parseInt(powerSlider.value, 10);
+    powerValue.textContent = String(val);
+    if (!ws || ws.readyState !== 1) return;
+    if (sendTimer) clearTimeout(sendTimer);
+    sendTimer = setTimeout(() => {
+      ws.send(JSON.stringify({ antenna_power: val }));
+    }, 250);
+  });
+
+  connect();
+</script>
+</body>
+</html>
+
+

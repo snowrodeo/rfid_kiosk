@@ -1,0 +1,25 @@
+[Unit]
+Description=RFID Reader Dashboard (readerLink3)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/rfid_kiosk
+ExecStart=/var/www/rfid_kiosk/venv/bin/python /var/www/rfid_kiosk/readerLink3.py
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+# Optional small delay to give DHCP/network time
+ExecStartPre=/bin/sleep 5
+
+# Redirect stdout/stderr to a log file
+StandardOutput=append:/var/log/readerlink.log
+StandardError=append:/var/log/readerlink.log
+
+[Install]
+WantedBy=multi-user.target
+
+

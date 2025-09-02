@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Racer Info Loading</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
+        h1 { font-size: 2em; }
+    </style>
+    <script>
+        function checkFlask() {
+            fetch("http://localhost:5000/health")
+                .then(resp => {
+                    if (resp.ok) {
+                        // Redirect to index.html (or /wrapper is fine if it loads index automatically)
+                        window.location.href = "http://localhost:5000/";
+                    } else {
+                        setTimeout(checkFlask, 1000);
+                    }
+                })
+                .catch(() => setTimeout(checkFlask, 1000));
+        }
+        window.onload = checkFlask;
+    </script>
+</head>
+<body>
+    <h1>Loading Racer Info... Please wait</h1>
+</body>
+</html>
+

@@ -1,0 +1,18 @@
+[Unit]
+Description=RFID Kiosk Flask App
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/rfid_kiosk
+Environment="PATH=/var/www/rfid_kiosk/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=/var/www/rfid_kiosk/venv/bin/python3 /var/www/rfid_kiosk/app.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+

@@ -1,0 +1,174 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Racer Info Display</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            background: #111;
+            color: #0f0; /* green for valid racer */
+        }
+
+        /* Racer display lines */
+        .line1 { font-size: 10vw; font-weight: bold; margin-top: 5vh; }
+        .line2, .line3, .line4, .line5 { font-size: 8.5vw; margin-top: 2vh; }
+
+        /* Idle screen */
+        .idle {
+            font-size: 9vw;
+            color: #fff;
+            margin-top: 20vh;
+        }
+
+        /* Problem screen */
+        .problem-title {
+            font-size: 10vw;
+            font-weight: bold;
+            color: red;
+            margin-top: 10vh;
+            animation: flash 1s infinite;
+        }
+        .problem-line {
+            font-size: 8vw;
+            color: red;
+            margin-top: 2vh;
+        }
+
+        @keyframes flash {
+            0%,50% { opacity: 1; }
+            25%,75% { opacity: 0; }
+        }
+    </style>
+
+    <!-- Load Socket.IO from local static file -->
+    <script src="/static/socket.io.min.js"></script>
+</head>
+<body>
+    <div id="display">
+        <div class="idle">Pass under arch<br/>Confirm reg data</div>
+    </div>
+
+    <script>
+        let errorTimeout = null;
+        let raceIndex = 0;
+        let raceInterval = null;
+
+        const socket = io();
+
+        // Debug log div
+        const debugDiv = document.createElement("div");
+        debugDiv.style.position = "fixed";
+        debugDiv.style.bottom = "0";
+        debugDiv.style.left = "0";
+        debugDiv.style.background = "black";
+        debugDiv.style.color = "white";
+        debugDiv.style.fontSize = "10px";
+        debugDiv.style.maxHeight = "40%";
+        debugDiv.style.overflowY = "scroll";
+        debugDiv.style.zIndex = "9999";
+        debugDiv.style.display = "none";
+        document.body.appendChild(debugDiv);
+
+        function logDebug(msg) {
+            console.log(msg);
+            const p = document.createElement("div");
+            p.textContent = msg;
+            debugDiv.appendChild(p);
+            debugDiv.scrollTop = debugDiv.scrollHeight;
+        }
+
+        socket.on("connect", () => logDebug("Connected to server via WebSocket"));
+        socket.on("disconnect", () => logDebug("Disconnected from server"));
+
+        socket.on("new_racer", (data) => {
+            logDebug("New racer received: " + JSON.stringify(data));
+            clearError();
+            clearInterval(raceInterval);
+
+            if (!data || data.length === 0) {
+                showIdle();
+                return;
+            }
+
+            const races = Array.isArray(data) ? data : [data];
+            raceIndex = 0;
+
+            function showNextRace() {
+                if (raceIndex >= races.length) return;
+                const r = races[raceIndex];
+                if (r.problem && r.problem.length > 0) {
+                    showProblem(r);
+                } else {
+                    renderRacer(r);
+                }
+                raceIndex++;
+            }
+
+            // Show first race immediately
+            showNextRace();
+
+            // Cycle through races every 3 seconds
+            raceInterval = setInterval(() => {
+                if (raceIndex < races.length) {
+                    showNextRace();
+                }
+            }, 3000);
+
+            // Stop cycling after 10 seconds and revert to idle
+            errorTimeout = setTimeout(() => {
+                clearInterval(raceInterval);
+                showIdle();
+            }, 10000);
+        });
+
+        function renderRacer(r) {
+            document.getElementById("display").innerHTML = `
+                <div class="line1">${r.FirstName || "unknown"} ${r.LastName || ""}</div>
+                <div class="line2">ChipID: ${r.ChipId || "unknown"}</div>
+                <div class="line3">Bib: ${r.Bib || "unknown"}</div>
+                <div class="line4">Category: ${r.Category || "unknown"}</div>
+                <div class="line5">Date: ${r.RaceDate || "unknown"}</div>
+            `;
+        }
+
+        function showIdle() {
+            document.getElementById("display").innerHTML =
+                `<div class="idle">Pass under arch<br/>Confirm reg data</div>`;
+        }
+
+        function showProblem(r) {
+            const chip = r.ChipId || "unknown";
+            const bib = r.Bib || "unknown";
+            const cat = r.Category || "unknown";
+            const date = r.RaceDate || "unknown";
+            const message = r.problem && r.problem.includes("Not registered") ? 
+                            "Not registered" : "Problem: Go see Reg";
+
+            document.getElementById("display").innerHTML = `
+                <div class="problem-title">${message}</div>
+                <div class="problem-line">ChipID: ${chip}</div>
+                <div class="problem-line">Bib: ${bib}</div>
+                <div class="problem-line">Category: ${cat}</div>
+                <div class="problem-line">Date: ${date}</div>
+            `;
+        }
+
+        function clearError() {
+            if (errorTimeout) {
+                clearTimeout(errorTimeout);
+                errorTimeout = null;
+            }
+            if (raceInterval) {
+                clearInterval(raceInterval);
+                raceInterval = null;
+            }
+        }
+    </script>
+</body>
+</html>
+

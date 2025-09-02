@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Racer Info Display</title>
+<style>
+body { font-family: Arial; text-align: center; margin: 0; padding: 0; background: #111; color: #0f0; }
+
+.line1 { font-size: 10vw; font-weight: bold; margin-top: 5vh; }
+.line2, .line3, .line4, .line5 { font-size: 8.5vw; margin-top: 2vh; }
+
+.idle { font-size: 9vw; color: #fff; margin-top: 20vh; }
+
+.problem-title { font-size: 10vw; font-weight: bold; color: red; margin-top: 10vh; animation: flash 1s infinite; }
+.problem-line { font-size: 8vw; color: red; margin-top: 2vh; }
+
+@keyframes flash {
+  0%, 50% { opacity: 1; }
+  25%, 75% { opacity: 0; }
+}
+</style>
+</head>
+<body>
+<div id="display">
+    <div class="idle">Pass under arch<br/>Confirm reg data</div>
+</div>
+
+<script src="https://cdn.socket.io/4.7.1/socket.io.min.js"></script>
+<script>
+let racers = [];
+let currentIndex = 0;
+let errorTimeout = null;
+
+const socket = io();
+
+// Receive updates from server
+socket.on("racer_update", function(data) {
+    if (!data || data.error || data.length === 0) {
+        showIdle();
+        return;
+    }
+
+    racers = data;
+    currentIndex = 0;
+
+    const r = racers[currentIndex];
+
+    // Check for missing fields
+    if (!r.FirstName || !r.LastName || !r.ChipId || !r.Bib || !r.Category || !r.RaceDate) {
+        showProblem(r);
+        return;
+    }
+
+    renderRacer(r);
+});
+
+// Cycle multiple races
+setInterval(() => {
+    if (racers.length > 1) {
+        currentIndex = (currentIndex + 1) % racers.length;
+        renderRacer(racers[currentIndex]);
+    }
+}, 3000);
+
+function renderRacer(r) {
+    clearError();
+    document.getElementById("display").innerHTML = `
+        <div class="line1">${r.FirstName} ${r.LastName}</div>
+        <div class="line2">ChipID: ${r.ChipId}</div>
+        <div class="line3">Bib: ${r.Bib}</div>
+        <div class="line4">Category: ${r.Category}</div>
+        <div class="line5">Date: ${r.RaceDate}</div>
+    `;
+}
+
+function showIdle() {
+    clearError();
+    document.getElementById("display").innerHTML =
+        `<div class="idle">Pass under arch<br/>Confirm reg data</div>`;
+}
+
+function showProblem(r) {
+    const chip = r.ChipId || "unknown";
+    const bib = r.Bib || "unknown";
+    const cat = r.Category || "unknown";
+    const date = r.RaceDate || "unknown";
+
+    document.getElementById("display").innerHTML = `
+        <div class="problem-title">Problem: Go see Reg</div>
+        <div class="problem-line">ChipID: ${chip}</div>
+        <div class="problem-line">Bib: ${bib}</div>
+        <div class="problem-line">Category: ${cat}</div>
+        <div class="problem-line">Date: ${date}</div>
+    `;
+
+    clearTimeout(errorTimeout);
+    errorTimeout = setTimeout(showIdle, 10000);
+}
+
+function clearError() {
+    if (errorTimeout) {
+        clearTimeout(errorTimeout);
+        errorTimeout = null;
+    }
+}
+</script>
+</body>
+</html>
+
+

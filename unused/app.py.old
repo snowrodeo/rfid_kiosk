@@ -1,0 +1,102 @@
+#!/usr/bin/env python3
+from flask import Flask, render_template, request, jsonify
+import subprocess
+import json, time
+
+app = Flask(__name__)
+
+SCRIPT_PATH = "./getRacerInfo.py"
+last_chipid = None
+last_seen = 0  # timestamp of last scan
+
+# ------------------------
+# Helper functions
+# ------------------------
+def lookup_chip(chipid):
+    """Call getRacerInfo.py and return JSON list"""
+    try:
+        result = subprocess.run(
+            [SCRIPT_PATH, chipid],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        data = json.loads(result.stdout)
+
+        # Validate that required fields are present for each race entry
+        valid = True
+        if not data or not isinstance(data, list):
+            valid = False
+        else:
+            for entry in data:
+                if not all(entry.get(k) for k in ("FirstName", "LastName", "ChipId", "Bib", "Category")):
+                    valid = False
+                    break
+
+        if not valid:
+            return {"error": "invalid_racer_data"}
+
+        return data
+
+    except subprocess.CalledProcessError as e:
+        return {"error": str(e)}
+    except json.JSONDecodeError:
+        return {"error": "invalid_json"}
+
+# ------------------------
+# Routes
+# ------------------------
+@app.route("/wrapper")
+def wrapper():
+    """Placeholder page while Flask is starting"""
+    return render_template("kiosk_wrapper.html")
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+@app.route("/api/tag", methods=["POST"])
+def api_tag():
+    """Receive a new chipid from sllurp"""
+    global last_chipid, last_seen
+    data = request.get_json()
+    if not data or "chipid" not in data:
+        return jsonify({"error": "chipid required"}), 400
+
+    last_chipid = data["chipid"]
+    last_seen = time.time()
+    print(f"[{time.ctime()}] New chip scanned: {last_chipid}")
+    return jsonify({"status": "ok", "chipid": last_chipid})
+
+@app.route("/api/current_racer")
+def api_current_racer():
+    """Return info for the last seen chipid, or reset if expired"""
+    global last_chipid, last_seen
+    # Timeout after 10s
+    if not last_chipid or time.time() - last_seen > 10:
+        last_chipid = None
+        return jsonify({"expired": True})
+
+    data = lookup_chip(last_chipid)
+
+    # If lookup failed or data is invalid
+    if "error" in data:
+        return jsonify([{"FirstName": "Problem",
+                         "LastName": "Please see registration to fix",
+                         "Bib": "",
+                         "Category": "",
+                         "ChipId": last_chipid,
+                         "RaceDate": ""}])
+
+    return jsonify(data)
+
+@app.route("/health")
+def health():
+    return "OK", 200
+
+# ------------------------
+# Main
+# ------------------------
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
+

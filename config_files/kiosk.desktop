@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Chromium Kiosk
+Exec=sh -c "sleep 5 && unclutter -idle 0 & chromium-browser --noerrdialogs --disable-infobars --kiosk http://localhost:5000/wrapper"
+X-GNOME-Autostart-enabled=true
+

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Racer Info Display</title>
+    <style>
+        body { font-family: Arial; text-align: center; margin: 0; padding: 0; background: #111; color: #fff; }
+        h1 { font-size: 2em; margin: 20px; }
+        table { margin: auto; border-collapse: collapse; width: 90%; max-width: 700px; font-size: 1.2em; }
+        th, td { border: 1px solid #fff; padding: 12px; text-align: left; }
+        th { background: #333; }
+        td { background: #222; }
+        .error { color: red; font-size: 1.5em; text-align: center; }
+    </style>
+</head>
+<body>
+    <h1>Live Racer Info</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>First Name</th>
+                <th>Last Name</th>
+                <th>Bib</th>
+                <th>Category</th>
+                <th>ChipID</th>
+                <th>Race Date</th>
+            </tr>
+        </thead>
+        <tbody id="results-body">
+            <tr><td colspan="6" class="error">Go under antenna and check result</td></tr>
+        </tbody>
+    </table>
+
+    <script>
+        let currentIndex = 0;
+        let racers = [];
+
+        async function refreshData() {
+            try {
+                const resp = await fetch("/api/current_racer");
+                const data = await resp.json();
+
+                if (!resp.ok || data.expired || data.error || data.length === 0) {
+                    racers = [];
+                    showMessage("Go under antenna and check result");
+                    return;
+                }
+
+                racers = data;
+                currentIndex = 0;
+                renderRacer(racers[currentIndex]);
+            } catch (e) {
+                console.error(e);
+                showMessage("Error fetching data");
+            }
+        }
+
+        function renderRacer(r) {
+            const tbody = document.getElementById("results-body");
+            tbody.innerHTML = `
+                <tr>
+                    <td>${r.FirstName}</td>
+                    <td>${r.LastName}</td>
+                    <td>${r.Bib}</td>
+                    <td>${r.Category}</td>
+                    <td>${r.ChipId}</td>
+                    <td>${r.RaceDate}</td>
+                </tr>`;
+        }
+
+        function showMessage(msg) {
+            document.getElementById("results-body").innerHTML =
+                `<tr><td colspan="6" class="error">${msg}</td></tr>`;
+        }
+
+        function cycleRacers() {
+            if (racers.length > 1) {
+                currentIndex = (currentIndex + 1) % racers.length;
+                renderRacer(racers[currentIndex]);
+            }
+        }
+
+        // Poll backend every 2s, cycle every 3s
+        setInterval(refreshData, 2000);
+        setInterval(cycleRacers, 3000);
+        window.onload = refreshData;
+    </script>
+</body>
+</html>
+
+
